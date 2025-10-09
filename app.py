@@ -16,7 +16,7 @@ app_mode = st.sidebar.radio(
 )
 
 if app_mode == "CRIF Report":
-    from crif_analyzer import crif_app
+    from crif_analyzer import crif_commercial_app
     crif_commercial_app()
 
 elif app_mode == "CIBIL Consumer":
