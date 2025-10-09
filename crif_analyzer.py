@@ -151,28 +151,29 @@ def crif_app():
     # ------------------- Streamlit UI -------------------
     uploaded_file = st.file_uploader("Upload CRIF PDF", type="pdf")
     if uploaded_file:
-        text = extract_text_from_pdf(uploaded_file)
-        borrower_details_df = pd.DataFrame([extract_borrower_details(text)]).T
-        borrower_summary_df = parse_borrower_summary(text)
-        credit_summary_df = parse_credit_summary(text)
-        loan_details_df = parse_loan_details(text)
-        inquiry_summary_df = parse_inquiry_summary(text)
-
-        # Display in tabs
-        with st.expander("Borrower Details"):
-            st.dataframe(borrower_details_df)
-
-        with st.expander("Borrower Summary"):
-            st.dataframe(borrower_summary_df)
-
-        with st.expander("Credit Summary"):
-            st.dataframe(credit_summary_df)
-
-        with st.expander("Loan Details"):
-            st.dataframe(loan_details_df)
-
-        with st.expander("Inquiry Summary"):
-            st.dataframe(inquiry_summary_df)
+        with st.spinner("Extracting data... please wait"):
+            text = extract_text_from_pdf(uploaded_file)
+            borrower_details_df = pd.DataFrame([extract_borrower_details(text)]).T
+            borrower_summary_df = parse_borrower_summary(text)
+            credit_summary_df = parse_credit_summary(text)
+            loan_details_df = parse_loan_details(text)
+            inquiry_summary_df = parse_inquiry_summary(text)
+    
+            # Display in tabs
+            with st.expander("Borrower Details"):
+                st.dataframe(borrower_details_df)
+    
+            with st.expander("Borrower Summary"):
+                st.dataframe(borrower_summary_df)
+    
+            with st.expander("Credit Summary"):
+                st.dataframe(credit_summary_df)
+    
+            with st.expander("Loan Details"):
+                st.dataframe(loan_details_df)
+    
+            with st.expander("Inquiry Summary"):
+                st.dataframe(inquiry_summary_df)
 
         # Download Excel
         output = BytesIO()
