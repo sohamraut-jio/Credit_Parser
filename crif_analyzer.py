@@ -243,7 +243,7 @@ def crif_app():
         # Download Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            borrower_details_df.T.to_excel(writer, sheet_name="Borrower Details", header=False)
+            borrower_details_df.to_excel(writer, sheet_name="Borrower Details", header=False)
             borrower_summary_df.to_excel(writer, sheet_name="Borrower Summary", index=False)
             credit_summary_df.to_excel(writer, sheet_name="Credit Summary", index=False)
             loan_details_df.to_excel(writer, sheet_name="Loan Details", index=False)
