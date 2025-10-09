@@ -134,6 +134,15 @@ def cibil_commercial_app():
     # ----------------------------------
     # Streamlit UI
     # ----------------------------------
+    st.sidebar.title("📌 How to Use")
+    st.sidebar.markdown("""
+    **Step 1:** Upload PDF credit report — corporate supported.
+    
+    **Step 2:** Click **Generate Excel** when done.
+    
+    **Step 3:** Download your output file from the download button below!
+    
+    """)
     st.set_page_config(page_title="CIBIL Commercial Report Analyzer", layout="wide")
     st.title("📊 CIBIL Report Analyzer")
     
