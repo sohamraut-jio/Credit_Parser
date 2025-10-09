@@ -152,7 +152,7 @@ def crif_app():
     uploaded_file = st.file_uploader("Upload CRIF PDF", type="pdf")
     if uploaded_file:
         text = extract_text_from_pdf(uploaded_file)
-        borrower_details_df = pd.DataFrame([extract_borrower_details(text)])
+        borrower_details_df = pd.DataFrame([extract_borrower_details(text)]).T
         borrower_summary_df = parse_borrower_summary(text)
         credit_summary_df = parse_credit_summary(text)
         loan_details_df = parse_loan_details(text)
