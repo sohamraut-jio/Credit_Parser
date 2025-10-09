@@ -139,14 +139,52 @@ def crif_app():
         return df
 
     def parse_credit_summary(text):
-        summary_text = extract_summary_section(text, "Credit Profile Summary", "Additional Status")
-        if not summary_text: return pd.DataFrame()
-        columns = ['Institution','Credit Facility','STD Acct(#)','STD O/S Amt','SMA Acct(#)','SMA O/S Amt',
-                   'SUB Acct(#)','SUB O/S Amt','DBT Acct(#)','DBT O/S Amt','LOS Acct(#)','LOS O/S Amt',
-                   'Inquiries <3 m','Inquiries 3-6 m','Inquiries 6-9 m','Inquiries 9-12 m','Inquiries >12 m']
-        # Dummy parsing (you can improve further)
-        data = []
-        return pd.DataFrame(data, columns=columns)
+        text_input = extract_summary_section(text,"Credit Profile Summary","Additional Status")
+    if not text_input: return pd.DataFrame()
+    text_input = text_input.split('(%) represents utilization')[0]
+    asset_classes = ['STD','SMA','SUB','DBT','LOS']
+    inquiry_periods = ['<3 m','3-6 m','6-9 m','9-12 m','>12 m']
+    facilities = ['Working Cap','Term Loan','Non-Funded','Forex','OTHERS']
+    columns = ['Institution','Credit Facility']
+    for cls in asset_classes:
+        columns.extend([f'{cls} Acct(#)',f'{cls} O/S Amt'])
+    columns.extend([f'Inquiries {p}' for p in inquiry_periods])
+    sections = re.split(r'(Your Institution|Other Institution)', text_input)
+    data=[]
+    for i in range(1,len(sections),2):
+        inst=sections[i].strip()
+        content=sections[i+1].strip().splitlines()
+        content=[val for val in content if not re.fullmatch(r"\(\d+(\.\d+)?%\)",val)]
+        current=[]
+        for line in content:
+            line=line.strip()
+            if line in facilities:
+                if current:
+                    numbers=[item for item in current if item not in ('')]
+                    row=[inst,facility]
+                    for j in range(5):
+                        acct=numbers[j*2] if len(numbers)>j*2 else '-'
+                        amt=numbers[j*2+1] if len(numbers)>j*2+1 else '-'
+                        row.extend([acct,amt])
+                    inquiries=numbers[10:15]
+                    while len(inquiries)<5: inquiries.append('-')
+                    row.extend(inquiries)
+                    data.append(row)
+                    current=[]
+                facility=line
+            elif line: current.append(line)
+        if current:
+            numbers=[item for item in current]
+            row=[inst,facility]
+            for j in range(5):
+                acct=numbers[j*2] if len(numbers)>j*2 else '-'
+                amt=numbers[j*2+1] if len(numbers)>j*2+1 else '-'
+                row.extend([acct,amt])
+            inquiries=numbers[10:15]
+            while len(inquiries)<5: inquiries.append('-')
+            row.extend(inquiries)
+            data.append(row)
+    return pd.DataFrame(data,columns=columns)
 
     # ------------------- Streamlit UI -------------------
     uploaded_file = st.file_uploader("Upload CRIF PDF", type="pdf")
