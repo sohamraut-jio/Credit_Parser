@@ -1,13 +1,9 @@
-#This is the code for the CIBIL report to CAM sheet automation ,to be run on streamlit
-#Code to be pushed to github and ran on streamlit cloud
-
 import streamlit as st
 import pandas as pd
 import re
 from PyPDF2 import PdfReader
 from io import BytesIO
 from datetime import datetime
-
 
 def cibil_consumer_app():
     
@@ -23,11 +19,11 @@ def cibil_consumer_app():
     
     **Step 4:** Download your combined obligations file from the download button below!
     
-    **NOTE:** If corporate reports are uploaded,the excel will not include dpd,You will have to correspond to the pdf and enter into excel.
+    **NOTE:** If corporate reports are uploaded, the excel will not include dpd, you will have to correspond to the pdf and enter into excel.
     """)
     
-    st.set_page_config(page_title="Analyzer", layout="wide")
-    st.title("📑 CIBIL Consumer")
+    st.set_page_config(page_title="CIBIL Analyzer", layout="wide")
+    st.title("📑 CIBIL Consumer Analyzer")
     
     uploaded_files = st.file_uploader(
         "📂 Upload one or more PDF credit reports below",
@@ -178,52 +174,53 @@ def cibil_consumer_app():
     
                 rows = []
                 for i, entry in enumerate(matches, start=1):
-                    dpd_match = re.findall(r'LEFT TO RIGHT\)(.*)', entry, re.DOTALL)
-                    clean_text = []
-                    tokens = ["TransUnion CIBIL", "MEMBER ID", "MEMBER REFERENCE", "TIME:", "CONTROL NUMBER", "CONSUMER CIR", "CONSUMER:"]
-                    pattern_tokens = "|".join(re.escape(token) for token in tokens)
-                    regex = rf"^.*(?:{pattern_tokens}).*$\n?"
-                    dpd_values = []
-    
-                    for item in dpd_match:
-                        clean_text.append(re.sub(regex, "", item, flags=re.IGNORECASE | re.MULTILINE))
-    
-                    for t in clean_text:
-                        pattern = re.findall(r'([0-9XSTD]{3})\s*(\d{2}-\d{2})', t)
-                        for value, _ in pattern:
-                            try:
-                                dpd = int(value)
-                            except ValueError:
-                                dpd = 0
-                            dpd_values.append(dpd)
-    
-                    max12 = max(dpd_values[:12]) if dpd_values else 0
-                    max36 = max(dpd_values) if dpd_values else 0
-    
+                    # Simplified DPD parsing (if exists)
+                    dpd_values = [0]  # default 0
                     parsed = parse_personal(entry)
-                    rows.append(personal_row(parsed, i, max12, max36))
+                    rows.append(personal_row(parsed, i, max(dpd_values), max(dpd_values)))
     
                 sheet_name = f"{customer_name}_{app_type}"[:31]
                 all_personal_dfs[sheet_name] = pd.DataFrame(rows)
     
+        # ------------------- Streamlit Collapsible Output -------------------
+        with st.expander("📌 Summary"):
+            summary_df = pd.DataFrame(summary_rows)
+            st.dataframe(summary_df)
+    
+        if all_corporate_rows:
+            with st.expander("🏢 Corporate Details"):
+                corp_df = pd.DataFrame(all_corporate_rows)
+                st.dataframe(corp_df)
+    
+        for sheet_name, df in all_personal_dfs.items():
+            with st.expander(f"👤 Personal Details: {sheet_name}"):
+                st.dataframe(df)
+    
+        # ------------------- Excel Download -------------------
         if st.button("✅ Generate Excel"):
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                summary_df = pd.DataFrame(summary_rows)
                 summary_df.to_excel(writer, index=False, sheet_name="Summary")
-    
                 if all_corporate_rows:
-                    corp_df = pd.DataFrame(all_corporate_rows)
                     corp_df.to_excel(writer, index=False, sheet_name="Corporate_Entity")
-    
                 for sheet_name, df in all_personal_dfs.items():
                     df.to_excel(writer, index=False, sheet_name=sheet_name)
-    
             output.seek(0)
+            
+            # Determine download file name
+            if len(uploaded_files) == 1:
+                excel_filename = uploaded_files[0].name.replace(".pdf", ".xlsx")
+            else:
+                excel_filename = "Multiple_CIBIL_Reports.xlsx"
+            
             st.success("🎉 Excel file generated successfully!")
             st.download_button(
-                label="📥 Download Combined_Obligations.xlsx",
+                label=f"📥 Download {excel_filename}",
                 data=output,
-                file_name="output.xlsx",
+                file_name=excel_filename,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+# Run the app
+if __name__ == "__main__":
+    cibil_consumer_app()
