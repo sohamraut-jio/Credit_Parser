@@ -1,0 +1,9 @@
+
+streamlit
+PyMuPDF
+pandas
+camelot-py[cv]
+tqdm
+xlsxwriter
+PyPDF2
+openpyxl
