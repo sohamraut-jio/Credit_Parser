@@ -174,6 +174,10 @@ def crif_app():
     
             with st.expander("Inquiry Summary"):
                 st.dataframe(inquiry_summary_df)
+        # -----------------------
+        # Display sections
+        # -----------------------
+        st.success("✅ Extraction completed!")
 
         # Download Excel
         output = BytesIO()
