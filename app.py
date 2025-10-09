@@ -2,7 +2,7 @@ import streamlit as st
 from io import BytesIO
 
 # Import your individual analyzer modules (or keep functions here)
-# from crif_analyzer import crif_app
+# from crif_analyzer import crif_commercial_app
 # from cibil_consumer import cibil_consumer_app
 # from cibil_commercial import cibil_commercial_app
 
