@@ -1,20 +1,26 @@
-
 import streamlit as st
+from crif_analyzer import crif_app
+from cibil_consumer import cibil_consumer_app
+from cibil_commercial import cibil_commercial_app
 
-st.set_page_config(page_title="Credit Report Analyzer", layout="centered")
-
+st.set_page_config(page_title="Credit Report Analyzer Suite", layout="wide")
 st.title("📊 Credit Report Analyzer Suite")
 
-option = st.selectbox(
-    "Select an Analyzer to Launch",
-    ["-- Choose --", "CRIF Report Analyzer", "CIBIL Consumer Analyzer", "CIBIL Commercial Analyzer"]
+st.sidebar.title("Select Analyzer")
+choice = st.sidebar.radio(
+    "Choose which analyzer to use:",
+    [
+        "CRIF Report Analyzer",
+        "CIBIL Consumer Analyzer",
+        "CIBIL Commercial Analyzer"
+    ]
 )
 
-if option == "CRIF Report Analyzer":
-    st.write("👉 Run: `streamlit run crif_analyzer.py`")
+if choice == "CRIF Report Analyzer":
+    crif_app()
 
-elif option == "CIBIL Consumer Analyzer":
-    st.write("👉 Run: `streamlit run cibil_consumer.py`")
+elif choice == "CIBIL Consumer Analyzer":
+    cibil_consumer_app()
 
-elif option == "CIBIL Commercial Analyzer":
-    st.write("👉 Run: `streamlit run cibil_commercial.py`")
+elif choice == "CIBIL Commercial Analyzer":
+    cibil_commercial_app()
