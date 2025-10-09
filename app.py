@@ -1,26 +1,28 @@
 import streamlit as st
-from crif_analyzer import crif_app
-from cibil_consumer import cibil_consumer_app
-from cibil_commercial import cibil_commercial_app
+from io import BytesIO
 
-st.set_page_config(page_title="Credit Report Analyzer Suite", layout="wide")
-st.title("📊 Credit Report Analyzer Suite")
+# Import your individual analyzer modules (or keep functions here)
+# from crif_analyzer import crif_app
+# from cibil_consumer import cibil_consumer_app
+# from cibil_commercial import cibil_commercial_app
 
-st.sidebar.title("Select Analyzer")
-choice = st.sidebar.radio(
-    "Choose which analyzer to use:",
-    [
-        "CRIF Report Analyzer",
-        "CIBIL Consumer Analyzer",
-        "CIBIL Commercial Analyzer"
-    ]
+st.set_page_config(page_title="Credit Report Analyzer", layout="wide")
+st.title("📊 Credit Report Analyzer")
+
+# Sidebar navigation
+app_mode = st.sidebar.radio(
+    "Choose Analyzer",
+    ["CRIF Report", "CIBIL Consumer", "CIBIL Commercial"]
 )
 
-if choice == "CRIF Report Analyzer":
+if app_mode == "CRIF Report":
+    from crif_analyzer import crif_app
     crif_app()
 
-elif choice == "CIBIL Consumer Analyzer":
+elif app_mode == "CIBIL Consumer":
+    from cibil_consumer import cibil_consumer_app
     cibil_consumer_app()
 
-elif choice == "CIBIL Commercial Analyzer":
+elif app_mode == "CIBIL Commercial":
+    from cibil_commercial import cibil_commercial_app
     cibil_commercial_app()
