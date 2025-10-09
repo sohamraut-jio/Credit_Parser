@@ -12,7 +12,7 @@ st.title("📊 Credit Report Analyzer")
 # Sidebar navigation
 app_mode = st.sidebar.radio(
     "Choose Analyzer",
-    ["CRIF Report", "CIBIL Consumer", "CIBIL Commercial"]
+    ["CRIF Commercial", "CIBIL Consumer", "CIBIL Commercial"]
 )
 
 if app_mode == "CIBIL Consumer":
