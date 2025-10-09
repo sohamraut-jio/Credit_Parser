@@ -22,3 +22,7 @@ if app_mode == "CIBIL Consumer":
 elif app_mode == "CIBIL Commercial":
     from cibil_commercial import cibil_commercial_app
     cibil_commercial_app()
+
+elif app_mode == "CRIF Report":
+    from crif_analyzer import crif_app
+    crif_app()
