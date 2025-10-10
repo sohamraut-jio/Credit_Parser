@@ -37,7 +37,7 @@ def cibil_consumer_app():
             # Auto-extract corporate name
             name_match = re.search(r'Name of Borrower\s*[:\-]?\s*(.+)', full_text)
             if not name_match:
-                name_match = re.search(r'Company Name\s*[:\-]?\s*(.+)', full_text)
+                name_match = re.search(r'Name:\s*[:\-]?\s*(.+)', full_text)
             customer_name = name_match.group(1).strip() if name_match else "Unknown Entity"
 
             app_type = "Applicant"  # For internal use, can be removed if not needed
