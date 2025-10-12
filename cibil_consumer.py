@@ -154,32 +154,53 @@ def cibil_consumer_app():
 
         else:
             # Personal
-            name_match = re.search(r'CONSUMER NAME\s*[:\-]?\s*(.+)', full_text, re.IGNORECASE)
-            customer_name = name_match.group(1).strip() if name_match else "Unknown Individual"
-            score_match = re.search(r'CREDITVISION® SCORE\s*[:\-]?\s*(\d{3})', full_text, re.IGNORECASE)
-            pscore = score_match.group(1) if score_match else "None"
-            summary_rows.append({'Name': customer_name, 'Score': pscore})
+            # Detect consumer name
+name_match = re.search(r'CONSUMER NAME\s*[:\-]?\s*(.+)', full_text, re.IGNORECASE)
+customer_name = name_match.group(1).strip() if name_match else "Unknown Individual"
 
-            matches = re.split(r'ACCOUNT INFORMATION', full_text)[1:]
-            for i, block in enumerate(matches, 1):
-                parsed = parse_personal_block(block)
-                all_personal_rows.append(personal_row(parsed, customer_name, i))
+# Extract personal score
+score_match = re.search(r'CREDITVISION® SCORE\s*[:\-]?\s*(\d{3})', full_text, re.IGNORECASE)
+pscore = score_match.group(1) if score_match else "None"
 
-            summary_df = pd.DataFrame(summary_rows)
-            personal_df = pd.DataFrame(all_personal_rows)
+summary_rows.append({'Name': customer_name, 'Score': pscore})
 
-            with st.expander("📌 Personal Summary"):
-                st.dataframe(summary_df)
-            with st.expander(f"👤 Personal Account Details: {customer_name}"):
-                st.dataframe(personal_df)
+# ---------------- Detect which personal format ----------------
+if 'ACCOUNT INFORMATION' in full_text:
+    # ----- Colab-style personal report -----
+    matches = re.split(r'ACCOUNT INFORMATION', full_text)[1:]
+    for i, block in enumerate(matches, 1):
+        parsed = parse_personal_block(block)
+        all_personal_rows.append(personal_row(parsed, customer_name, i))
+else:
+    # ----- Streamlit-style personal report -----
+    matches = re.findall(r'STATUS(.*?)(?:ACCOUNT DATES|ENQUIRIES:)', full_text, re.DOTALL)
+    for i, block in enumerate(matches, 1):
+        parsed = parse_streamlit_personal_block(block)
+        all_personal_rows.append(personal_row(parsed, customer_name, i))
 
-            if st.button("✅ Generate Excel"):
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    summary_df.to_excel(writer, index=False, sheet_name="Summary")
-                    personal_df.to_excel(writer, index=False, sheet_name=f"{customer_name}"[:31])
-                output.seek(0)
-                st.download_button("📥 Download Excel", output, uploaded_file.name.replace(".pdf", ".xlsx"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+# Create DataFrames
+summary_df = pd.DataFrame(summary_rows)
+personal_df = pd.DataFrame(all_personal_rows)
+
+# Display in Streamlit
+with st.expander("📌 Personal Summary"):
+    st.dataframe(summary_df)
+with st.expander(f"👤 Personal Account Details: {customer_name}"):
+    st.dataframe(personal_df)
+
+# Excel export
+if st.button("✅ Generate Excel"):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        summary_df.to_excel(writer, index=False, sheet_name="Summary")
+        personal_df.to_excel(writer, index=False, sheet_name=f"{customer_name}"[:31])
+    output.seek(0)
+    st.download_button(
+        "📥 Download Excel",
+        output,
+        uploaded_file.name.replace(".pdf", ".xlsx"),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 if __name__ == "__main__":
     cibil_consumer_app()
