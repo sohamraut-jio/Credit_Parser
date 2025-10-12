@@ -214,7 +214,7 @@ def cibil_consumer_app():
         # ---------------- PERSONAL REPORT HANDLING ----------------
         else:
             # Consumer Name & Score
-            name_match = re.search(r'CONSUMER NAME\s*[:\-]?\s*(.+)|CONSUMER\s*[:\-]?\s*(.+)', full_text, re.IGNORECASE)
+            name_match = re.search(r'CONSUMER NAME:\s*[:\-]?\s*(.+)|CONSUMER:\s*[:\-]?\s*(.+)', full_text, re.IGNORECASE)
             customer_name = (name_match.group(1).strip() if name_match and name_match.group(1)else name_match.group(2).strip() if name_match and name_match.group(2)else "Unknown Individual")
             score_match = re.search(r'CREDITVISION® SCORE\s*[:\-]?\s*(\d{3})', full_text, re.IGNORECASE)
             pscore = score_match.group(1) if score_match else "None"
