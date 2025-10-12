@@ -1,3 +1,4 @@
+# --- CIBIL Analyzer (Streamlit Version, Multi-format Personal & Corporate) ---
 import streamlit as st
 import pandas as pd
 import re
@@ -5,6 +6,7 @@ from PyPDF2 import PdfReader
 from io import BytesIO
 from datetime import datetime
 
+# ---------- Helper Functions ----------
 def clean_amount(amount_str):
     """Extract only numeric value from a string and convert to int."""
     if not amount_str:
@@ -13,10 +15,7 @@ def clean_amount(amount_str):
     return int(numeric_str) if numeric_str else 0
 
 def extract_max_dpd(block):
-    """
-    Extract the maximum DPD from a CIBIL personal account block.
-    Handles multi-line YEAR / MONTH tables with DPD numbers.
-    """
+    """Extract maximum DPD from Colab-style personal account block."""
     dpd_section_match = re.search(
         r'DAYS PAST DUE/ASSET CLASSIFICATION.*?\n(?:YEAR.*\n)((?:.*\n)*?)(?:ACCOUNT|$)',
         block, re.IGNORECASE
@@ -28,7 +27,8 @@ def extract_max_dpd(block):
     dpd_values = [int(x) for x in dpd_numbers]
     return max(dpd_values) if dpd_values else 0
 
-def parse_personal_block(block):
+def parse_colab_personal_block(block):
+    """Parse Colab-style personal account block."""
     def extract(pattern):
         m = re.search(pattern, block, re.IGNORECASE)
         return m.group(1).strip() if m else ''
@@ -49,73 +49,78 @@ def parse_personal_block(block):
     parsed['MAX DPD'] = extract_max_dpd(block)
     return parsed
 
+def parse_streamlit_personal_block(block):
+    """Parse Streamlit-style personal account block."""
+    parsed = {}
+    type_match = re.search(r'TYPE:\s*(.+)', block, re.IGNORECASE)
+    parsed['TYPE'] = type_match.group(1).strip() if type_match else ''
+    
+    own_match = re.search(r'OWNERSHIP:\s*(.+?)(?:OPENED|\n|LAST|REPORTED|CLOSED|PMT|$)', block, re.IGNORECASE)
+    parsed['OWNERSHIP'] = own_match.group(1).strip() if own_match else ''
+    
+    opened_match = re.search(r'OPENED:\s*(\d{2}-\d{2}-\d{4})', block)
+    parsed['OPENED'] = opened_match.group(1).strip() if opened_match else ''
+    
+    closed_match = re.search(r'CLOSED:\s*(.+)', block)
+    parsed['CLOSED'] = closed_match.group(1).strip() if closed_match else ''
+    
+    san_match = re.search(r'(?:SANCTIONED|CREDIT LIMIT):\s*([\d,]+)', block)
+    parsed['SANCTIONED'] = clean_amount(san_match.group(1)) if san_match else 0
+    
+    curr_match = re.search(r'CURRENT BALANCE:\s*(-?[\d,]+)', block)
+    parsed['CURRENT BALANCE'] = clean_amount(curr_match.group(1)) if curr_match else 0
+    
+    emi_match = re.search(r'EMI:\s*([\d,]+)', block)
+    parsed['EMI'] = clean_amount(emi_match.group(1)) if emi_match else 0
+    
+    parsed['MAX DPD'] = 0  # Streamlit-style reports usually don't have DPD table
+    return parsed
+
 def personal_row(parsed, customer_name, sr_no):
     status = "Active" if parsed.get('CLOSED', '') == '' else "Closed"
+    sanction_date_str = parsed.get('OPENED', '')
+    formatted_date = ''
+    if sanction_date_str:
+        try:
+            date_obj = datetime.strptime(sanction_date_str, "%d/%m/%Y")
+            formatted_date = date_obj.strftime("%d/%m/%Y")
+        except ValueError:
+            try:
+                date_obj = datetime.strptime(sanction_date_str, "%d-%m-%Y")
+                formatted_date = date_obj.strftime("%d/%m/%Y")
+            except:
+                formatted_date = sanction_date_str
     return {
         'Sr. No.': sr_no,
         'Borrower': customer_name,
         'Type of loan': parsed.get('TYPE', ''),
         'Ownership': parsed.get('OWNERSHIP', ''),
-        'Sanction date': parsed.get('OPENED', ''),
+        'Sanction date': formatted_date,
         'Closed date': parsed.get('CLOSED', ''),
         'Sanctioned amount': parsed.get('SANCTIONED', ''),
         'Current balance': parsed.get('CURRENT BALANCE', ''),
-        'High credit amount': parsed.get('HIGH CREDIT', ''),
-        'Cash limit': parsed.get('CASH LIMIT', ''),
         'EMI': parsed.get('EMI', ''),
-        'Actual payment': parsed.get('ACTUAL PAYMENT', ''),
-        'Payment frequency': parsed.get('PAYMENT FREQUENCY', ''),
         'Status': status,
         'Max DPD': parsed.get('MAX DPD', 0)
     }
 
-def parse_corporate_block(block, customer_name):
-    patterns = {
-        'TYPE': r'Type:\s*(.+)',
-        'OPENED': r'Sanctioned:\s*(\d{2}-[A-Za-z]{3}-\d{4})',
-        'SANCTIONED': r'Sanctioned INR:\s*([\d,]+)',
-        'CURRENT BALANCE': r'Outstanding Balance:\s*(-?[\d,]+)',
-        'EMI': r'Installment Amount:\s*([\d,]+)',
-        'OVERDUE': r'Overdue:\s*(-?[\d,]+)'
-    }
-    parsed = {}
-    for key, pattern in patterns.items():
-        match = re.search(pattern, block, re.IGNORECASE)
-        parsed[key] = match.group(1).strip() if match else ''
-
-    # Format sanction date
-    formatted_date = parsed.get('OPENED', '')
-    try:
-        formatted_date = datetime.strptime(parsed.get('OPENED', ''), "%d-%b-%Y").strftime("%d/%m/%Y")
-    except:
-        pass
-
-    return {
-        'Sr. No.': 1,
-        'Borrower': customer_name,
-        'Type of loan': parsed.get('TYPE', ''),
-        'Sanction date (DD/MM/YYYY)': formatted_date,
-        'Sanction amount (INR)/ CC outstanding Amount': parsed.get('SANCTIONED', ''),
-        'Monthly EMI (INR)': parsed.get('EMI', ''),
-        'Current outstanding (INR)': parsed.get('CURRENT BALANCE', ''),
-        'Overdue Amount': parsed.get('OVERDUE', ''),
-        'Max DPD in L12 Months': '',
-        'Max DPD in L36 Months': ''
-    }
-
-# ---------------- STREAMLIT APP ----------------
+# ---------- Streamlit App ----------
 def cibil_consumer_app():
     st.set_page_config(page_title="CIBIL Analyzer", layout="wide")
     st.title("📑 CIBIL Analyzer")
 
     st.sidebar.title("📌 How to Use")
     st.sidebar.markdown("""
-    **Step 1:** Upload a single PDF credit report (personal or corporate).  
+    **Step 1:** Upload a single PDF credit report — corporate or personal supported.  
     **Step 2:** Click **Generate Excel** when done.  
-    **Step 3:** Download your formatted Excel output below!
+    **Step 3:** Download your formatted Excel output below!  
     """)
 
-    uploaded_file = st.file_uploader("📂 Upload one CIBIL report (PDF only)", type="pdf")
+    uploaded_file = st.file_uploader(
+        "📂 Upload one CIBIL report (PDF only)",
+        type="pdf",
+        accept_multiple_files=False
+    )
 
     if uploaded_file:
         file_bytes = uploaded_file.read()
@@ -123,84 +128,110 @@ def cibil_consumer_app():
         full_text = "".join([page.extract_text() + "\n" for page in reader.pages])
 
         summary_rows = []
-        all_personal_rows = []
         all_corporate_rows = []
+        all_personal_rows = []
 
-        # Detect report type
+        # ---------------- CORPORATE REPORT HANDLING ----------------
         if 'COMMERCIAL CREDIT INFORMATION REPORT' in full_text:
-            # Corporate
             name_match = re.search(r'Name of Borrower\s*[:\-]?\s*(.+)', full_text)
+            if not name_match:
+                name_match = re.search(r'Name:\s*[:\-]?\s*(.+)', full_text)
             customer_name = name_match.group(1).strip() if name_match else "Unknown Entity"
-            summary_rows.append({'Name': customer_name, 'Score': re.search(r'CMR-\s*([\d,]+)', full_text).group(1) if re.search(r'CMR-\s*([\d,]+)', full_text) else 'None'})
+
+            cmr = re.search(r'CMR-\s*([\d,]+)', full_text)
+            cmr_score = cmr.group(1) if cmr else "None"
+            summary_rows.append({'Name': customer_name, 'Score': cmr_score})
 
             matches = re.findall(r'Credit Facility Details(.*?)Overdue Details', full_text, re.DOTALL)
-            for i, block in enumerate(matches, 1):
-                all_corporate_rows.append(parse_corporate_block(block, customer_name))
+            def parse_corporate(data_str):
+                patterns = {
+                    'TYPE': r'Type:\s*(.+)',
+                    'OPENED': r'Sanctioned:\s*(\d{2}-[A-Za-z]{3}-\d{4})',
+                    'SANCTIONED': r'Sanctioned INR:\s*([\d,]+)',
+                    'CURRENT BALANCE': r'Outstanding Balance:\s*(-?[\d,]+)',
+                    'EMI': r'Installment Amount:\s*([\d,]+)',
+                    'OVERDUE': r'Overdue:\s*(-?[\d,]+)'
+                }
+                extracted = {}
+                for key, pattern in patterns.items():
+                    match = re.search(pattern, data_str, re.IGNORECASE)
+                    extracted[key] = match.group(1).strip() if match else ''
+                return extracted
 
-            summary_df = pd.DataFrame(summary_rows)
-            corporate_df = pd.DataFrame(all_corporate_rows)
+            def corporate_row(parsed, sr_no):
+                sanction_date_str = parsed.get('OPENED', '')
+                formatted_date = ''
+                if sanction_date_str:
+                    try:
+                        date_obj = datetime.strptime(sanction_date_str, "%d-%b-%Y")
+                        formatted_date = date_obj.strftime("%d/%m/%Y")
+                    except ValueError:
+                        formatted_date = sanction_date_str
+                return {
+                    'Sr. No.': sr_no,
+                    'Borrower': customer_name,
+                    'Type of loan': parsed.get('TYPE', ''),
+                    'Sanction date (DD/MM/YYYY)': formatted_date,
+                    'Sanction amount (INR)/ CC outstanding Amount': parsed.get('SANCTIONED', ''),
+                    'Monthly EMI (INR)': parsed.get('EMI', ''),
+                    'Current outstanding (INR)': parsed.get('CURRENT BALANCE', ''),
+                    'Overdue Amount': parsed.get('OVERDUE', '')
+                }
+
+            for i, entry in enumerate(matches, start=1):
+                parsed = parse_corporate(entry)
+                all_corporate_rows.append(corporate_row(parsed, i))
 
             with st.expander("🏢 Corporate Report Summary"):
-                st.dataframe(summary_df)
-                st.dataframe(corporate_df)
+                st.dataframe(pd.DataFrame(summary_rows))
+                st.dataframe(pd.DataFrame(all_corporate_rows))
 
             if st.button("✅ Generate Excel"):
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    summary_df.to_excel(writer, index=False, sheet_name="Summary")
-                    corporate_df.to_excel(writer, index=False, sheet_name="Corporate_Entity")
+                    pd.DataFrame(summary_rows).to_excel(writer, index=False, sheet_name="Summary")
+                    pd.DataFrame(all_corporate_rows).to_excel(writer, index=False, sheet_name="Corporate_Entity")
                 output.seek(0)
-                st.download_button("📥 Download Excel", output, uploaded_file.name.replace(".pdf", ".xlsx"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                st.download_button("📥 Download Excel", output, uploaded_file.name.replace(".pdf", ".xlsx"),
+                                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+        # ---------------- PERSONAL REPORT HANDLING ----------------
         else:
-            # Personal
-            # Detect consumer name
-name_match = re.search(r'CONSUMER NAME\s*[:\-]?\s*(.+)', full_text, re.IGNORECASE)
-customer_name = name_match.group(1).strip() if name_match else "Unknown Individual"
+            # Consumer Name & Score
+            name_match = re.search(r'CONSUMER NAME\s*[:\-]?\s*(.+)', full_text, re.IGNORECASE)
+            customer_name = name_match.group(1).strip() if name_match else "Unknown Individual"
+            score_match = re.search(r'CREDITVISION® SCORE\s*[:\-]?\s*(\d{3})', full_text, re.IGNORECASE)
+            pscore = score_match.group(1) if score_match else "None"
+            summary_rows.append({'Name': customer_name, 'Score': pscore})
 
-# Extract personal score
-score_match = re.search(r'CREDITVISION® SCORE\s*[:\-]?\s*(\d{3})', full_text, re.IGNORECASE)
-pscore = score_match.group(1) if score_match else "None"
+            # Detect personal report format
+            if 'ACCOUNT INFORMATION' in full_text:
+                matches = re.split(r'ACCOUNT INFORMATION', full_text)[1:]
+                for i, block in enumerate(matches, 1):
+                    parsed = parse_colab_personal_block(block)
+                    all_personal_rows.append(personal_row(parsed, customer_name, i))
+            else:
+                matches = re.findall(r'STATUS(.*?)(?:ACCOUNT DATES|ENQUIRIES:)', full_text, re.DOTALL)
+                for i, block in enumerate(matches, 1):
+                    parsed = parse_streamlit_personal_block(block)
+                    all_personal_rows.append(personal_row(parsed, customer_name, i))
 
-summary_rows.append({'Name': customer_name, 'Score': pscore})
+            # Display
+            with st.expander("📌 Personal Summary"):
+                st.dataframe(pd.DataFrame(summary_rows))
+            with st.expander(f"👤 Personal Account Details: {customer_name}"):
+                st.dataframe(pd.DataFrame(all_personal_rows))
 
-# ---------------- Detect which personal format ----------------
-if 'ACCOUNT INFORMATION' in full_text:
-    # ----- Colab-style personal report -----
-    matches = re.split(r'ACCOUNT INFORMATION', full_text)[1:]
-    for i, block in enumerate(matches, 1):
-        parsed = parse_personal_block(block)
-        all_personal_rows.append(personal_row(parsed, customer_name, i))
-else:
-    # ----- Streamlit-style personal report -----
-    matches = re.findall(r'STATUS(.*?)(?:ACCOUNT DATES|ENQUIRIES:)', full_text, re.DOTALL)
-    for i, block in enumerate(matches, 1):
-        parsed = parse_streamlit_personal_block(block)
-        all_personal_rows.append(personal_row(parsed, customer_name, i))
+            # Excel export
+            if st.button("✅ Generate Excel"):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    pd.DataFrame(summary_rows).to_excel(writer, index=False, sheet_name="Summary")
+                    pd.DataFrame(all_personal_rows).to_excel(writer, index=False, sheet_name=f"{customer_name}"[:31])
+                output.seek(0)
+                st.download_button("📥 Download Excel", output, uploaded_file.name.replace(".pdf", ".xlsx"),
+                                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# Create DataFrames
-summary_df = pd.DataFrame(summary_rows)
-personal_df = pd.DataFrame(all_personal_rows)
-
-# Display in Streamlit
-with st.expander("📌 Personal Summary"):
-    st.dataframe(summary_df)
-with st.expander(f"👤 Personal Account Details: {customer_name}"):
-    st.dataframe(personal_df)
-
-# Excel export
-if st.button("✅ Generate Excel"):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        summary_df.to_excel(writer, index=False, sheet_name="Summary")
-        personal_df.to_excel(writer, index=False, sheet_name=f"{customer_name}"[:31])
-    output.seek(0)
-    st.download_button(
-        "📥 Download Excel",
-        output,
-        uploaded_file.name.replace(".pdf", ".xlsx"),
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
+# Run app
 if __name__ == "__main__":
     cibil_consumer_app()
