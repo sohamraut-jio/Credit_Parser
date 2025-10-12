@@ -88,7 +88,7 @@ def parse_streamlit_personal_block(block):
     
     emi_match = re.search(r'EMI:\s*([\d,]+)', block)
     parsed['EMI'] = clean_amount(emi_match.group(1)) if emi_match else 0
-    -
+    
     parsed['MAX DPD'] = extract_max_dpd_streamlit(block)
     return parsed
 
