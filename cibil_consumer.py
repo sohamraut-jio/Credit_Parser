@@ -49,6 +49,22 @@ def parse_colab_personal_block(block):
     parsed['MAX DPD'] = extract_max_dpd(block)
     return parsed
 
+def extract_max_dpd_streamlit(block):
+    """
+    Extract maximum DPD from Streamlit-style personal block.
+    Looks for the DAYS PAST DUE section and returns the maximum numeric value.
+    """
+    dpd_section_match = re.search(
+        r'DAYS PAST DUE/ASSET CLASSIFICATION.*?\n((?:\d{3}\s*\n?)+)', block, re.IGNORECASE
+    )
+    if not dpd_section_match:
+        return 0
+    dpd_text = dpd_section_match.group(1)
+    # Extract all 3-digit numbers
+    dpd_numbers = re.findall(r'\b(\d{3})\b', dpd_text)
+    dpd_values = [int(x) for x in dpd_numbers if x.isdigit()]
+    return max(dpd_values) if dpd_values else 0
+
 def parse_streamlit_personal_block(block):
     """Parse Streamlit-style personal account block."""
     parsed = {}
@@ -72,8 +88,8 @@ def parse_streamlit_personal_block(block):
     
     emi_match = re.search(r'EMI:\s*([\d,]+)', block)
     parsed['EMI'] = clean_amount(emi_match.group(1)) if emi_match else 0
-    
-    parsed['MAX DPD'] = 0  # Streamlit-style reports usually don't have DPD table
+    -
+    parsed['MAX DPD'] = extract_max_dpd_streamlit(block)
     return parsed
 
 def personal_row(parsed, customer_name, sr_no):
@@ -198,8 +214,15 @@ def cibil_consumer_app():
         # ---------------- PERSONAL REPORT HANDLING ----------------
         else:
             # Consumer Name & Score
-            name_match = re.search(r'CONSUMER NAME\s*[:\-]?\s*(.+)', full_text, re.IGNORECASE)
-            customer_name = name_match.group(1).strip() if name_match else "Unknown Individual"
+            name_match = re.search(
+                r'CONSUMER NAME\s*[:\-]?\s*(.+)|CONSUMER\s*[:\-]?\s*(.+)', 
+                full_text, re.IGNORECASE
+            )
+            customer_name = (
+                name_match.group(1).strip() if name_match and name_match.group(1)
+                else name_match.group(2).strip() if name_match and name_match.group(2)
+                else "Unknown Individual"
+            )
             score_match = re.search(r'CREDITVISION® SCORE\s*[:\-]?\s*(\d{3})', full_text, re.IGNORECASE)
             pscore = score_match.group(1) if score_match else "None"
             summary_rows.append({'Name': customer_name, 'Score': pscore})
