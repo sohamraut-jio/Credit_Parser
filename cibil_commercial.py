@@ -182,14 +182,61 @@ def cibil_commercial_app():
             tables_page1 = extract_table_from_pdf(tmp_path, 1)
             if len(tables_page1) > 2:
                 df = tables_page1[2].df
-                credit_summary = df.loc[df.loc[df[df.columns[0]]=='Your Institution'].index[0]:,:]
-                columns = [
-                    "Category","Total_Lenders","Total_CF_Borrower","Total_CF_Guarantor","Open_CF",
-                    "Total_Outstanding_Borrower","Total_Outstanding_Guarantor","Latest_CF_Opened_Date",
-                    "Delinquent_CF_Borrower","Delinquent_CF_Guarantor",
-                    "Delinquent_Outstanding_Borrower","Delinquent_Outstanding_Guarantor"
+                idx = df.loc[df[df.columns[0]] == 'Your Institution'].index[0]
+                credit_summary = df.loc[idx:, :]
+                for col in credit_summary.columns:
+                    credit_summary[col] = credit_summary[col].apply(
+                        lambda x: re.sub(r"\([^)]*\)", "", str(x)).strip() if pd.notnull(x) else x
+                    )
+            
+                # Optional: replace empty strings with None
+                credit_summary.replace("", None, inplace=True)
+                expanded_rows = []
+                for _, row in credit_summary.iterrows():
+                    new_row = list(row)  # start with original row
+                    i = 0
+                    while i < len(new_row):
+                        val = new_row[i]
+                        if val is not None and '\n' in str(val):
+                            # Split by newline
+                            parts = [v.strip() for v in str(val).split('\n') if v.strip() != ""]
+                            if len(parts) > 1:
+                                # Insert into current and next None columns
+                                new_row[i] = parts[0]  # first part stays here
+                                j = 1
+                                for part in parts[1:]:
+                                    # find next available None column
+                                    k = i + j
+                                    if k < len(new_row):
+                                        while k < len(new_row) and new_row[k] is not None:
+                                            k += 1
+                                        # If we ran out of columns, append at the end
+                                        if k >= len(new_row):
+                                            new_row.append(part)
+                                        else:
+                                            new_row[k] = part
+                                        j += 1
+                                    else:
+                                        new_row.append(part)
+                        i += 1
+                    expanded_rows.append(new_row)
+            
+                # Find max row length
+                max_len = max(len(r) for r in expanded_rows)
+            
+                # Pad rows with None to normalize
+                for r in expanded_rows:
+                    while len(r) < max_len:
+                        r.append(None)
+            
+                expanded_credit_summary = pd.DataFrame(expanded_rows)
+                expanded_credit_summary.columns = [
+                    "Category", "Total_Lenders", "Total_CF_Borrower", "Total_CF_Guarantor", "Open_CF",
+                    "Total_Outstanding_Borrower", "Total_Outstanding_Guarantor", "Latest_CF_Opened_Date",
+                    "Delinquent_CF_Borrower", "Delinquent_CF_Guarantor",
+                    "Delinquent_Outstanding_Borrower", "Delinquent_Outstanding_Guarantor"
                 ]
-                credit_summary.columns = columns
+                credit_summary = expanded_credit_summary
             else:
                 credit_summary = pd.DataFrame()
     
