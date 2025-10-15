@@ -230,6 +230,7 @@ def cibil_commercial_app():
                         r.append(None)
             
                 expanded_credit_summary = pd.DataFrame(expanded_rows)
+                expanded_credit_summary = expanded_credit_summary[expanded_credit_summary.columns[:12]]
                 expanded_credit_summary.columns = [
                     "Category", "Total_Lenders", "Total_CF_Borrower", "Total_CF_Guarantor", "Open_CF",
                     "Total_Outstanding_Borrower", "Total_Outstanding_Guarantor", "Latest_CF_Opened_Date",
