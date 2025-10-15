@@ -38,7 +38,7 @@ def parse_colab_personal_block(block):
     parsed['OWNERSHIP'] = extract(r'OWNERSHIP\s*[:\-]?\s*(.+)')
     parsed['OPENED'] = extract(r'DATE OPENED\s*[:\-]?\s*(\d{2}/\d{2}/\d{4})')
     parsed['CLOSED'] = extract(r'DATE CLOSED\s*[:\-]?\s*(\d{2}/\d{2}/\d{4})')
-    parsed['SANCTIONED'] = clean_amount(extract(r'(?:SANCTIONED(?:\s+AMOUNT)?|CREDIT LIMIT)\s*[:\-]?\s*([\d,]+)'))
+    parsed['SANCTIONED'] = clean_amount(extract(r'CREDIT LIMIT\s*[:\-]?\s*(.+)'))
     parsed['CURRENT BALANCE'] = clean_amount(extract(r'BALANCE\s*[:\-]?\s*(.+)'))
     parsed['HIGH CREDIT'] = clean_amount(extract(r'HIGH CREDIT\s*AMOUNT\s*[:\-]?\s*(.+)'))
     parsed['CASH LIMIT'] = clean_amount(extract(r'CASH LIMIT\s*[:\-]?\s*(.+)'))
