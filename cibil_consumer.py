@@ -80,7 +80,7 @@ def parse_streamlit_personal_block(block):
     closed_match = re.search(r'CLOSED:\s*(.+)', block)
     parsed['CLOSED'] = closed_match.group(1).strip() if closed_match else ''
     
-    san_match = re.search(r'(?:SANCTIONED|CREDIT LIMIT):\s*([\d,]+)', block)
+    san_match = re.search(r'(?:SANCTIONED(?:\s+AMOUNT)?|CREDIT LIMIT)\s*:\s*([\d,]+)', block)
     parsed['SANCTIONED'] = clean_amount(san_match.group(1)) if san_match else 0
     
     curr_match = re.search(r'CURRENT BALANCE:\s*(-?[\d,]+)', block)
